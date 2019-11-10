@@ -1,1 +1,1 @@
-from .pyker import *
+from pyker.pyker import *
