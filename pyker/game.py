@@ -7,6 +7,7 @@ from typing import Collection, Dict, List, Tuple
 
 from pyker.cards import Card, Deck
 from pyker.cli import print_player_info
+from pyker.rating import HandType, rate_hand
 
 
 class Player(object):
@@ -66,7 +67,11 @@ class Game(object):
         self.hands = []
         self.current_hand = None
 
-    def play_hand(self):
+    @property
+    def num_players_in_hand(self) -> int:
+        return sum(1 for player in self.players if player.hand is not None)
+
+    def play_hand(self) -> None:
         self.current_hand = Game.Hand(game=self)
 
         for player in self.players:
@@ -82,24 +87,39 @@ class Game(object):
 
         print('\n======== Pre-Flop ========')
         self._round_of_betting(pre_flop=True)
-        if len([player for player in self.players if player.hand is not None]) > 1:
+        if self.num_players_in_hand > 1:
             print('\n======== Flop ========')
             self.current_hand.flop = Game.Hand.sorted_cards(self.deck.draw_many(count=3))
-            self.print_current_state()
+            self._print_current_state()
             self._round_of_betting(pre_flop=False)
-            if len([player for player in self.players if player.hand is not None]) > 1:
+            if self.num_players_in_hand > 1:
                 print('\n======== Turn ========')
                 self.current_hand.turn = self.deck.draw()
-                self.print_current_state()
+                self._print_current_state()
                 self._round_of_betting(pre_flop=False)
-                if len([player for player in self.players if player.hand is not None]) > 1:
+                if self.num_players_in_hand > 1:
                     print('\n======== River ========')
                     self.current_hand.river = self.deck.draw()
-                    self.print_current_state()
+                    self._print_current_state()
                     self._round_of_betting(pre_flop=False)
 
-        # TODO - determine winner, update stats
+        # TODO - update stats
         print('\n======== Hand Finished ========')
+        if self.num_players_in_hand == 1:
+            winner = next(player for player in self.players if player.hand is not None)
+            print(f'{winner.name} wins')
+        else:
+            top_rating, winners = self._get_winners()
+            if len(winners) == 1:
+                rating = top_rating.name.lower()
+                if top_rating == HandType.high_card:
+                    rating = 'nothing'
+                elif top_rating in (HandType.pair, HandType.straight, HandType.flush, HandType.full_house,
+                                    HandType.straight_flush, HandType.royal_flush):
+                    rating = f'a {rating}'
+                print(f'{winners[0].name} wins with {rating}')
+            else:
+                print('Tie!')  # TODO - check for (a) best hand of that type, (b) kicker or (c) split
 
         for player in self.players:
             if player.hand is not None:
@@ -256,5 +276,15 @@ class Game(object):
             elif action == 'check' and pre_flop and player is self.big_blind_player:
                 break
 
-    def print_current_state(self):
+    def _get_winners(self) -> Tuple[HandType, List[Player]]:
+        ratings = defaultdict(list)
+        for player in self.players:
+            if player.hand is not None:
+                hand_type = rate_hand(player.hand + self.current_hand.board)
+                ratings[hand_type].append(player)
+        top_rating = sorted(ratings.keys())[-1]
+        winners = ratings[top_rating]
+        return top_rating, winners
+
+    def _print_current_state(self):
         print(f'{self.current_hand.board}\tPot: {self.current_hand.pot}')

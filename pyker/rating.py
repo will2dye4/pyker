@@ -3,6 +3,24 @@ from typing import Callable, Collection, List, Optional, Sized, Tuple
 
 from pyker.cards import Card, Rank
 from pyker.constants import HAND_SIZE
+from pyker.utils import OrderedEnum
+
+
+class HandType(OrderedEnum):
+    royal_flush = (10, 'Royal flush')  # technically just a nut straight flush, but modeled this way for simplicity
+    straight_flush = (9, 'Straight flush')
+    four_of_a_kind = (8, 'Four of a kind')
+    full_house = (7, 'Full house')
+    flush = (6, 'Flush')
+    straight = (5, 'Straight')
+    three_of_a_kind = (4, 'Three of a kind')
+    two_pair = (3, 'Two pair')
+    pair = (2, 'Pair')
+    high_card = (1, 'High card')
+
+    @property
+    def name(self) -> str:
+        return self.symbol
 
 
 def find_highest_n_of_a_kind(cards: Collection[Card], n: int) -> Optional[Tuple[Card]]:
@@ -98,21 +116,21 @@ def has_enough_cards(cards: Sized, size: int = 1) -> bool:
     return cards is not None and len(cards) >= size
 
 
-def rate_hand(cards: Collection[Card]) -> str:
+def rate_hand(cards: Collection[Card]) -> HandType:
     if has_straight_flush(cards):
-        return 'Royal flush' if find_highest_straight(cards)[0].rank == Rank.ten else 'Straight flush'
+        return HandType.royal_flush if find_highest_straight(cards)[0].rank == Rank.ten else HandType.straight_flush
     if has_four_of_a_kind(cards):
-        return 'Four of a kind'
+        return HandType.four_of_a_kind
     if has_full_house(cards):
-        return 'Full house'
+        return HandType.full_house
     if has_flush(cards):
-        return 'Flush'
+        return HandType.flush
     if has_straight(cards):
-        return 'Straight'
+        return HandType.straight
     if has_three_of_a_kind(cards):
-        return 'Three of a kind'
+        return HandType.three_of_a_kind
     if has_two_pair(cards):
-        return 'Two pair'
+        return HandType.two_pair
     if has_pair(cards):
-        return 'Pair'
-    return 'High card'
+        return HandType.pair
+    return HandType.high_card
