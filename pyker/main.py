@@ -1,14 +1,24 @@
 from typing import Collection, Tuple
 
-from pyker.cards import Card, Deck, Rank, Suit
+from pyker.cards import Card, Deck
 from pyker.cli import print_player_info
 from pyker.game import Game, Player
 
 
-__all__ = ['Suit', 'Rank', 'Card', 'Deck', 'Player', 'Game', 'play_hand']
+__all__ = ['play_game', 'run_hand']
 
 
-def play_hand(players=None, deck=None):
+def play_game():
+    print('Welcome! A new game is starting.\n')
+    game = Game()
+    response = ''
+    while response not in ('n', 'no'):
+        game.play_hand()
+        response = input('\nWould you like to play another hand? ').strip().lower()
+    print('Goodbye!')
+
+
+def run_hand(players=None, deck=None):
     def sorted_cards(cards: Collection[Card]) -> Tuple[Card]:
         return tuple(sorted(cards, key=lambda c: (c.rank, c.suit), reverse=True))
 

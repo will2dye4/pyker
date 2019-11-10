@@ -6,6 +6,9 @@ from pyker.constants import HAND_SIZE
 from pyker.utils import OrderedEnum
 
 
+__all__ = ['HandType', 'rate_hand']
+
+
 class HandType(OrderedEnum):
     royal_flush = (10, 'Royal flush')  # technically just a nut straight flush, but modeled this way for simplicity
     straight_flush = (9, 'Straight flush')

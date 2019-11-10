@@ -10,6 +10,9 @@ from pyker.cli import print_player_info
 from pyker.rating import HandType, rate_hand
 
 
+__all__ = ['Game', 'Player']
+
+
 class Player(object):
     player_id = 1   # don't create players in different threads simultaneously or multiple players may get the same ID
 
