@@ -104,11 +104,12 @@ class Game(object):
                     self._round_of_betting(pre_flop=False)
 
         # TODO - update stats
-        print('\n======== Hand Finished ========')
         if self.num_players_in_hand == 1:
+            print('\n======== Hand Finished ========')
             winner = next(player for player in self.players if player.hand is not None)
             print(f'{winner.name} wins')
         else:
+            print('\n======== Showdown ========')
             top_rating, winners = self._get_winners()
             if len(winners) == 1:
                 rating = top_rating.name.lower()
