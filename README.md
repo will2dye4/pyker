@@ -16,9 +16,11 @@ Pyker requires **Python 3.6** or newer.
 
 ## Playing a Hand
 
-Create a game by instantiating a `pyker.Game` object. By default, the game will have four players
-who all start with 10,000 chips. The `play_hand` method of the `Game` will deal a hand to all players
-and prompt for input asking how each player should act at each stage of the game.
+Pyker currently only supports one variation of poker: [Texas hold 'em](https://en.wikipedia.org/wiki/Texas_hold_%27em).
+
+Create a game by instantiating a `pyker.Game` object. By default, the game will have four players (who all start with
+10,000 chips), no ante, and blinds of 100 (small blind) and 200 (big blind). The `play_hand` method of the `Game`
+will deal a hand to all players and prompt for input asking how each player should act at each stage of the game.
 
 The game will tell you what actions are legal for a given player. For example, if the prompt says `Player 4 may fold,
 call, raise`, then you may type `fold` to fold Player 4's hand, `call` to call the current bet, or `raise N` to raise
@@ -30,7 +32,7 @@ bets in the current round of betting).
 ### Example
 
 ```
-$ python3.8 -q
+$ python3 -q
 >>> import pyker
 >>> game = pyker.Game()
 >>> game.play_hand()
