@@ -235,10 +235,9 @@ class Game(object):
     def _round_of_betting(self, pre_flop: bool = False):
         # put player to act first at the front of the list
         relative_index = 3 if pre_flop else 1
-        players = deque(self.players)
+        players = deque(player for player in self.players if player.hand is not None)
         players.rotate(-self._index_relative_to_dealer(relative_index=relative_index))
-        player_count = len(players)
-        last_caller = next(player for player in players if player.hand is not None)
+        last_caller = players[0]
 
         if pre_flop:
             initial_bets = {self.small_blind_player: self.small_blind, self.big_blind_player: self.big_blind}
@@ -250,7 +249,7 @@ class Game(object):
         player_bets = defaultdict(int, initial_bets)
 
         for i, player in enumerate(cycle(players)):
-            if player_count == 1:
+            if self.num_players_in_hand == 1:
                 break
             if player.hand is None:
                 continue
@@ -264,7 +263,6 @@ class Game(object):
                                                      current_bet=current_bet, pre_flop=pre_flop)
             if action == 'fold':
                 self.fold(player)
-                player_count -= 1
             elif action in ['bet', 'raise']:
                 self.bet(player=player, amount=bet - player_bets[player])
                 current_bet = bet
