@@ -430,6 +430,7 @@ class Game(object):
         relative_index = 3 if pre_flop else 1
         players = deque(self.players)
         players.rotate(-self._index_relative_to_dealer(relative_index=relative_index))
+        player_count = len(players)
         last_caller = next(player for player in players if player.hand is not None)
 
         if pre_flop:
@@ -442,6 +443,8 @@ class Game(object):
         player_bets = defaultdict(int, initial_bets)
 
         for i, player in enumerate(cycle(players)):
+            if player_count == 1:
+                break
             if player.hand is None:
                 continue
             if pre_flop and (player is last_raiser and current_bet > self.big_blind):
@@ -454,6 +457,7 @@ class Game(object):
                                                      current_bet=current_bet, pre_flop=pre_flop)
             if action == 'fold':
                 self.fold(player)
+                player_count -= 1
             elif action in ['bet', 'raise']:
                 self.bet(player=player, amount=bet - player_bets[player])
                 current_bet = bet
