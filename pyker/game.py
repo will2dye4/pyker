@@ -80,26 +80,26 @@ class Game(object):
             elif player is self.big_blind_player:
                 self.bet_or_fold(player=player, amount=self.big_blind)
 
-        print('======== Pre-Flop ========')
+        print('\n======== Pre-Flop ========')
         self._round_of_betting(pre_flop=True)
         if len([player for player in self.players if player.hand is not None]) > 1:
-            print('======== Flop ========')
+            print('\n======== Flop ========')
             self.current_hand.flop = Game.Hand.sorted_cards(self.deck.draw_many(count=3))
             self.print_current_state()
             self._round_of_betting(pre_flop=False)
             if len([player for player in self.players if player.hand is not None]) > 1:
-                print('======== Turn ========')
+                print('\n======== Turn ========')
                 self.current_hand.turn = self.deck.draw()
                 self.print_current_state()
                 self._round_of_betting(pre_flop=False)
                 if len([player for player in self.players if player.hand is not None]) > 1:
-                    print('======== River ========')
+                    print('\n======== River ========')
                     self.current_hand.river = self.deck.draw()
                     self.print_current_state()
                     self._round_of_betting(pre_flop=False)
 
         # TODO - determine winner, update stats
-        print('======== Hand Finished ========')
+        print('\n======== Hand Finished ========')
 
         for player in self.players:
             if player.hand is not None:
