@@ -106,11 +106,11 @@ class Game(object):
                     self._print_current_state()
                     self._round_of_betting(pre_flop=False)
 
-        # TODO - update stats
         if self.num_players_in_hand == 1:
             print('\n======== Hand Finished ========')
             winner = next(player for player in self.players if player.hand is not None)
             print(f'{winner.name} wins')
+            self._award_winnings(winner, self.current_hand.pot)
         else:
             print('\n======== Showdown ========')
             top_rating, winners = self._get_winners()
@@ -121,7 +121,9 @@ class Game(object):
                 elif top_rating in (HandType.pair, HandType.straight, HandType.flush, HandType.full_house,
                                     HandType.straight_flush, HandType.royal_flush):
                     rating = f'a {rating}'
-                print(f'{winners[0].name} wins with {rating}')
+                winner = winners[0]
+                print(f'{winner.name} wins with {rating}')
+                self._award_winnings(winner, self.current_hand.pot)
             else:
                 print('Tie!')  # TODO - check for (a) best hand of that type, (b) kicker or (c) split
 
@@ -287,6 +289,11 @@ class Game(object):
         top_rating = sorted(ratings.keys())[-1]
         winners = ratings[top_rating]
         return top_rating, winners
+
+    @staticmethod
+    def _award_winnings(player: Player, amount: int) -> None:
+        player.chips += amount
+        player.wins += 1
 
     def _print_current_state(self):
         print(f'{self.current_hand.board}\tPot: {self.current_hand.pot}')
