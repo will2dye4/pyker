@@ -97,8 +97,11 @@ def has_straight(cards: Collection[Card]) -> bool:
 
 def has_straight_draw(cards: Collection[Card]) -> bool:
     num_cards_needed = HAND_SIZE - 1
-    if len(find_longest_straight(cards)) == num_cards_needed:
+    longest_straight_size = len(find_longest_straight(cards))
+    if longest_straight_size == num_cards_needed:
         return True
+    if longest_straight_size > num_cards_needed:
+        return False  # already has a straight!
 
     cards = _get_sorted_cards_for_straight_check(cards)
     i = 0
