@@ -6,7 +6,7 @@ from pyker.constants import HAND_SIZE
 from pyker.utils import OrderedEnum
 
 
-__all__ = ['HandType', 'rate_hand']
+__all__ = ['HandType', 'check_draws', 'rate_hand']
 
 
 class HandType(OrderedEnum):
@@ -59,12 +59,7 @@ def has_full_house(cards: Collection[Card]) -> bool:
 
 
 def find_best_straight(cards: Collection[Card], rank_fn: Callable[[List[Card], List[Card]], int]) -> List[Card]:
-    sorted_cards = sorted(cards, key=lambda c: c.rank)
-    cards = [card for i, card in enumerate(sorted_cards) if i == 0 or sorted_cards[i - 1].rank != card.rank]
-    aces = [card for card in cards if card.rank == Rank.ace]
-    if aces:
-        cards.insert(0, aces.pop())    # stash an ace at the beginning to check for a wheel
-
+    cards = _get_sorted_cards_for_straight_check(cards)
     best_straight = []
     current_straight = [cards[0]]
 
@@ -100,6 +95,29 @@ def has_straight(cards: Collection[Card]) -> bool:
     return has_enough_cards(cards, size=HAND_SIZE) and len(find_longest_straight(cards)) >= HAND_SIZE
 
 
+def has_straight_draw(cards: Collection[Card]) -> bool:
+    num_cards_needed = HAND_SIZE - 1
+    if len(find_longest_straight(cards)) == num_cards_needed:
+        return True
+
+    cards = _get_sorted_cards_for_straight_check(cards)
+    i = 0
+    j = num_cards_needed
+    while j <= len(cards):
+        current_cards = cards[i:j]
+        gaps = []
+        for previous, current in zip(current_cards[:-1], current_cards[1:]):
+            previous_rank_ordering = 1 if previous.rank == Rank.ace else previous.rank.ordering
+            delta = current.rank.ordering - previous_rank_ordering
+            if delta > 1:
+                gaps.append(delta)
+        if len(gaps) == 1 and gaps.pop() == 2:
+            return True
+        i += 1
+        j += 1
+    return False
+
+
 def find_biggest_flush(cards: Collection[Card]) -> List[Card]:
     suits = defaultdict(list)
     for card in cards:
@@ -113,6 +131,10 @@ def has_flush(cards: Collection[Card]) -> bool:
 
 def has_straight_flush(cards: Collection[Card]) -> bool:
     return has_flush(cards) and has_straight(find_biggest_flush(cards))
+
+
+def has_flush_draw(cards: Collection[Card]) -> bool:
+    return len(find_biggest_flush(cards)) == HAND_SIZE - 1
 
 
 def has_enough_cards(cards: Sized, size: int = 1) -> bool:
@@ -137,3 +159,23 @@ def rate_hand(cards: Collection[Card]) -> HandType:
     if has_pair(cards):
         return HandType.pair
     return HandType.high_card
+
+
+def check_draws(cards: Collection[Card], hand_type: HandType) -> List[str]:
+    draws = []
+    if hand_type <= HandType.straight:
+        if has_flush_draw(cards):
+            draws.append('Flush draw')
+        if has_straight_draw(cards):
+            draws.append('Straight draw')
+    return draws
+
+
+def _get_sorted_cards_for_straight_check(cards: Collection[Card]) -> List[Card]:
+    # sort by rank, deduplicate, and stash an ace at the beginning (if appropriate) to check for a wheel
+    sorted_cards = sorted(cards, key=lambda c: c.rank)
+    cards = [card for i, card in enumerate(sorted_cards) if i == 0 or sorted_cards[i - 1].rank != card.rank]
+    aces = [card for card in cards if card.rank == Rank.ace]
+    if aces:
+        cards.insert(0, aces.pop())
+    return cards

@@ -6,14 +6,16 @@ from itertools import cycle
 from typing import Collection, Dict, List, Tuple
 
 from pyker.cards import Card, Deck
-from pyker.cli import print_player_info
+from pyker.cli import print_player_info, print_winner_info
+from pyker.constants import HAND_SIZE
 from pyker.rating import HandType, rate_hand
 
 
-__all__ = ['Game', 'Player']
+__all__ = ['Game', 'Player', 'get_winners']
 
 
 class Player(object):
+
     player_id = 1   # don't create players in different threads simultaneously or multiple players may get the same ID
 
     def __init__(self, name: str = None, chips: int = 0):
@@ -113,19 +115,12 @@ class Game(object):
             self._award_winnings(winner, self.current_hand.pot)
         else:
             print('\n======== Showdown ========')
-            top_rating, winners = self._get_winners()
+            top_rating, winners = get_winners(self.players, self.current_hand.board)
+            print_winner_info(top_rating, winners)
             if len(winners) == 1:
-                rating = top_rating.name.lower()
-                if top_rating == HandType.high_card:
-                    rating = 'nothing'
-                elif top_rating in (HandType.pair, HandType.straight, HandType.flush, HandType.full_house,
-                                    HandType.straight_flush, HandType.royal_flush):
-                    rating = f'a {rating}'
-                winner = winners[0]
-                print(f'{winner.name} wins with {rating}')
-                self._award_winnings(winner, self.current_hand.pot)
+                self._award_winnings(winners.pop(), self.current_hand.pot)
             else:
-                print('Tie!')  # TODO - check for (a) best hand of that type, (b) kicker or (c) split
+                pass  # TODO - split pot
 
         for player in self.players:
             if player.hand is not None:
@@ -263,7 +258,8 @@ class Game(object):
                 break
             if not pre_flop and (player is last_raiser or (i > 0 and current_bet == 0 and player is last_caller)):
                 break
-            print_player_info(player, extra_cards=self.current_hand.board)
+            check_for_draw = not pre_flop and len(self.current_hand.board) < HAND_SIZE
+            print_player_info(player, extra_cards=self.current_hand.board, check_for_draws=check_for_draw)
             action, bet = self._get_action_from_user(player=player, player_bets=player_bets,
                                                      current_bet=current_bet, pre_flop=pre_flop)
             if action == 'fold':
@@ -297,3 +293,14 @@ class Game(object):
 
     def _print_current_state(self):
         print(f'{self.current_hand.board}\tPot: {self.current_hand.pot}')
+
+
+def get_winners(players, board):
+    ratings = defaultdict(list)
+    for player in players:
+        if player.hand is not None:
+            hand_type = rate_hand(player.hand + board)
+            ratings[hand_type].append(player)
+    top_rating = sorted(ratings.keys())[-1]
+    winners = ratings[top_rating]
+    return top_rating, winners

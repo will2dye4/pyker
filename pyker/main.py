@@ -1,8 +1,8 @@
 from typing import Collection, Tuple
 
 from pyker.cards import Card, Deck
-from pyker.cli import print_player_info
-from pyker.game import Game, Player
+from pyker.cli import print_player_info, print_winner_info
+from pyker.game import Game, Player, get_winners
 
 
 __all__ = ['play_game', 'run_hand']
@@ -22,9 +22,9 @@ def run_hand(players=None, deck=None):
     def sorted_cards(cards: Collection[Card]) -> Tuple[Card]:
         return tuple(sorted(cards, key=lambda c: (c.rank, c.suit), reverse=True))
 
-    def print_all_player_info(extra_cards=None):
+    def print_all_player_info(extra_cards=None, check_for_draws=True):
         for player in players:
-            print_player_info(player, extra_cards)
+            print_player_info(player, extra_cards, check_for_draws)
 
     if players is None:
         players = [Player() for _ in range(4)]
@@ -49,7 +49,13 @@ def run_hand(players=None, deck=None):
     # deal the river, re-evaluate hands
     river = deck.draw()
     print('\nRiver\n', flop + (turn, river), '\n', sep='')
-    print_all_player_info(extra_cards=flop + (turn, river))
+    print_all_player_info(extra_cards=flop + (turn, river), check_for_draws=False)
+
+    # print results
+    print('\nResults')
+    top_rating, winners = get_winners(players, flop + (turn, river))
+    print_winner_info(top_rating, winners)
+    print()
 
     # return cards to deck and reshuffle
     deck.add(flop + (turn, river))
