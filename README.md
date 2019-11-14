@@ -6,8 +6,16 @@ Pyker is a rudimentary poker engine written in Python.
 
 ## Installing
 
+### Local Installation
+
 ```
 $ make install
+```
+
+### Running in Docker
+
+```
+$ make docker
 ```
 
 ### Requirements
