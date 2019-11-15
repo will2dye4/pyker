@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Collection, Tuple
 
 from pyker.cards import Card, Deck
@@ -5,7 +6,7 @@ from pyker.cli import print_player_info, print_winner_info
 from pyker.game import Game, Player, get_winners
 
 
-__all__ = ['play_game', 'run_hand']
+__all__ = ['play_game', 'run_hand', 'run_hands']
 
 
 def play_game():
@@ -63,3 +64,26 @@ def run_hand(players=None, deck=None):
     deck.shuffle()
     for player in players:
         player.hand = None
+
+
+def run_hands(n=1000, num_players=4):
+    players = [Player() for _ in range(num_players)]
+    deck = Deck()
+    outcomes = defaultdict(list)
+
+    for _ in range(n):
+        for player in players:
+            player.hand = tuple(deck.draw_many(count=2))
+        board = tuple(deck.draw_many(count=5))
+        winners = get_winners(players, tuple(board))
+        for _, hand_rating in winners:
+            outcomes[hand_rating.hand_type].append(hand_rating)
+
+        deck.add(board)
+        deck.add([card for hand in map(lambda p: p.hand, players) for card in hand])
+        deck.shuffle()
+
+    for hand_type in sorted(outcomes.keys()):
+        occurrences = len(outcomes[hand_type])
+        frequency = (occurrences / n) * 100
+        print(f'{hand_type.name:16} {len(outcomes[hand_type]):8,}     ({frequency:0.2f}%)')
