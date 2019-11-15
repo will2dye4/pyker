@@ -86,4 +86,4 @@ def run_hands(n=1000, num_players=4):
     for hand_type in sorted(outcomes.keys()):
         occurrences = len(outcomes[hand_type])
         frequency = (occurrences / n) * 100
-        print(f'{hand_type.name:16} {len(outcomes[hand_type]):8,}     ({frequency:0.2f}%)')
+        print(f'{hand_type.name:16} {occurrences:8,}     ({frequency:0.2f}%)')
