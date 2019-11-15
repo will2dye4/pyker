@@ -21,19 +21,29 @@ class Suit(OrderedEnum):
 
 
 class Rank(OrderedEnum):
-    two = (2, '2')
-    three = (3, '3')
-    four = (4, '4')
-    five = (5, '5')
-    six = (6, '6')
-    seven = (7, '7')
-    eight = (8, '8')
-    nine = (9, '9')
-    ten = (10, '10')
-    jack = (11, 'J')
-    queen = (12, 'Q')
-    king = (13, 'K')
-    ace = (14, 'A')
+    two = (2, '2', 'deuce')
+    three = (3, '3', 'three')
+    four = (4, '4', 'four')
+    five = (5, '5', 'five')
+    six = (6, '6', 'six')
+    seven = (7, '7', 'seven')
+    eight = (8, '8', 'eight')
+    nine = (9, '9', 'nine')
+    ten = (10, '10', 'ten')
+    jack = (11, 'J', 'jack')
+    queen = (12, 'Q', 'queen')
+    king = (13, 'K', 'king')
+    ace = (14, 'A', 'ace')
+
+    @property
+    def name(self) -> str:
+        return self.value[2]
+
+    @property
+    def plural_name(self) -> str:
+        if self == self.six:
+            return 'sixes'
+        return self.name + 's'
 
 
 Card = namedtuple('Card', ['rank', 'suit'])

@@ -8,22 +8,22 @@ class OrderedEnum(Enum):
     def __ge__(self, other: Any) -> bool:
         if self.__class__ is other.__class__:
             return self.ordering >= other.ordering
-        return NotImplemented
+        raise NotImplemented
 
     def __gt__(self, other: Any) -> bool:
         if self.__class__ is other.__class__:
             return self.ordering > other.ordering
-        return NotImplemented
+        raise NotImplemented
 
     def __le__(self, other: Any) -> bool:
         if self.__class__ is other.__class__:
             return self.ordering <= other.ordering
-        return NotImplemented
+        raise NotImplemented
 
     def __lt__(self, other: Any) -> bool:
         if self.__class__ is other.__class__:
             return self.ordering < other.ordering
-        return NotImplemented
+        raise NotImplemented
 
     @property
     def ordering(self) -> int:

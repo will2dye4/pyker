@@ -1,12 +1,13 @@
 from collections import defaultdict
-from typing import Callable, Collection, List, Optional, Sized, Tuple
+from functools import total_ordering
+from typing import Any, Callable, Collection, List, Optional, Sized, Tuple
 
 from pyker.cards import Card, Rank
 from pyker.constants import HAND_SIZE
 from pyker.utils import OrderedEnum
 
 
-__all__ = ['HandType', 'check_draws', 'rate_hand']
+__all__ = ['HandRating', 'HandType', 'check_draws', 'rate_hand']
 
 
 class HandType(OrderedEnum):
@@ -24,6 +25,127 @@ class HandType(OrderedEnum):
     @property
     def name(self) -> str:
         return self.symbol
+
+    @property
+    def indefinite_form(self) -> str:
+        term = self.name.lower()
+        if self in (self.pair, self.straight, self.flush, self.full_house, self.straight_flush, self.royal_flush):
+            term = f'a {term}'
+        return term
+
+
+@total_ordering
+class HandRating(object):
+
+    def __init__(self, cards: Collection[Card]) -> None:
+        self.cards = cards
+
+        if has_straight_flush(cards):
+            flush = find_biggest_flush(cards)
+            straight_flush = find_longest_straight(flush)
+            self.participating_cards = tuple(straight_flush[-HAND_SIZE:])
+            if self.participating_cards[0].rank == Rank.ten:
+                self.hand_type = HandType.royal_flush
+            else:
+                self.hand_type = HandType.straight_flush
+        elif has_four_of_a_kind(cards):
+            self.hand_type = HandType.four_of_a_kind
+            self.participating_cards = find_highest_n_of_a_kind(cards, n=4)
+        elif has_full_house(cards):
+            self.hand_type = HandType.full_house
+            three_of_a_kind = find_highest_n_of_a_kind(cards, n=3)
+            pair = find_highest_n_of_a_kind(set(cards) - set(three_of_a_kind), n=2)
+            self.participating_cards = three_of_a_kind + pair
+        elif has_flush(cards):
+            self.hand_type = HandType.flush
+            flush = sorted(find_biggest_flush(cards))
+            self.participating_cards = tuple(flush[-HAND_SIZE:])
+        elif has_straight(cards):
+            self.hand_type = HandType.straight
+            straight = find_longest_straight(cards)
+            self.participating_cards = tuple(straight[-HAND_SIZE:])
+        elif has_three_of_a_kind(cards):
+            self.hand_type = HandType.three_of_a_kind
+            self.participating_cards = find_highest_n_of_a_kind(cards, n=3)
+        elif has_two_pair(cards):
+            self.hand_type = HandType.two_pair
+            first_pair = find_highest_n_of_a_kind(cards, n=2)
+            second_pair = find_highest_n_of_a_kind(set(cards) - set(first_pair), n=2)
+            self.participating_cards = first_pair + second_pair
+        elif has_pair(cards):
+            self.hand_type = HandType.pair
+            self.participating_cards = find_highest_n_of_a_kind(cards, n=2)
+        else:
+            self.hand_type = HandType.high_card
+            self.participating_cards = ()
+
+        self.kickers = tuple(sorted(set(self.cards) - set(self.participating_cards), reverse=True))
+
+    def __eq__(self, other: Any) -> bool:
+        if self.__class__ is not other.__class__:
+            raise NotImplemented
+        if self.hand_type != other.hand_type:
+            return False
+        if self.ranks != other.ranks:
+            return False
+        if self.num_kickers == 0:
+            return True
+        my_kicker_ranks, their_kicker_ranks = self.get_distinct_kicker_ranks(other)
+        return my_kicker_ranks == their_kicker_ranks
+
+    def __gt__(self, other: Any) -> bool:
+        if self.__class__ is not other.__class__:
+            raise NotImplemented
+        if self.hand_type > other.hand_type:
+            return True
+        if self.hand_type < other.hand_type:
+            return False
+        if self.ranks > other.ranks:
+            return True
+        if self.ranks < other.ranks:
+            return False
+        if self.num_kickers == 0:
+            return False
+        my_kicker_ranks, their_kicker_ranks = self.get_distinct_kicker_ranks(other)
+        return my_kicker_ranks > their_kicker_ranks
+
+    def __str__(self) -> str:
+        if self.hand_type == HandType.high_card:
+            return 'nothing'
+
+        rating = self.hand_type.indefinite_form
+        if self.hand_type == HandType.pair:
+            rating += f' of {self.participating_cards[0].rank.plural_name}'
+        elif self.hand_type == HandType.three_of_a_kind:
+            rating = f'three {self.participating_cards[0].rank.plural_name}'
+        elif self.hand_type == HandType.four_of_a_kind:
+            rating = f'four {self.participating_cards[0].rank.plural_name}'
+        elif self.hand_type == HandType.two_pair:
+            first_pair_rank = self.participating_cards[0].rank.plural_name
+            second_pair_rank = self.participating_cards[-1].rank.plural_name
+            rating += f' ({first_pair_rank} and {second_pair_rank})'
+        elif self.hand_type == HandType.full_house:
+            three_of_a_kind_rank = self.participating_cards[0].rank.plural_name
+            pair_rank = self.participating_cards[-1].rank.plural_name
+            rating += f' ({three_of_a_kind_rank} full of {pair_rank})'
+        elif self.hand_type in (HandType.straight, HandType.flush, HandType.straight_flush, HandType.royal_flush):
+            rating += f' {self.participating_cards}'
+        return rating
+
+    @property
+    def ranks(self) -> List[Rank]:
+        return [card.rank for card in self.participating_cards]
+
+    @property
+    def num_kickers(self) -> int:
+        return HAND_SIZE - len(self.participating_cards)
+
+    def get_distinct_kicker_ranks(self, other: 'HandRating') -> Tuple[List[Rank], List[Rank]]:
+        my_kickers = sorted(set(self.kickers) - set(other.kickers), reverse=True)
+        their_kickers = sorted(set(other.kickers) - set(self.kickers), reverse=True)
+        my_kicker_ranks = [card.rank for card in my_kickers[:self.num_kickers]]
+        their_kicker_ranks = [card.rank for card in their_kickers[:self.num_kickers]]
+        return my_kicker_ranks, their_kicker_ranks
 
 
 def find_highest_n_of_a_kind(cards: Collection[Card], n: int) -> Optional[Tuple[Card]]:
@@ -144,24 +266,8 @@ def has_enough_cards(cards: Sized, size: int = 1) -> bool:
     return cards is not None and len(cards) >= size
 
 
-def rate_hand(cards: Collection[Card]) -> HandType:
-    if has_straight_flush(cards):
-        return HandType.royal_flush if find_highest_straight(cards)[0].rank == Rank.ten else HandType.straight_flush
-    if has_four_of_a_kind(cards):
-        return HandType.four_of_a_kind
-    if has_full_house(cards):
-        return HandType.full_house
-    if has_flush(cards):
-        return HandType.flush
-    if has_straight(cards):
-        return HandType.straight
-    if has_three_of_a_kind(cards):
-        return HandType.three_of_a_kind
-    if has_two_pair(cards):
-        return HandType.two_pair
-    if has_pair(cards):
-        return HandType.pair
-    return HandType.high_card
+def rate_hand(cards: Collection[Card]) -> HandRating:
+    return HandRating(cards)
 
 
 def check_draws(cards: Collection[Card], hand_type: HandType) -> List[str]:

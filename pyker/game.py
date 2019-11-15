@@ -8,7 +8,7 @@ from typing import Collection, Dict, List, Tuple
 from pyker.cards import Card, Deck
 from pyker.cli import print_player_info, print_winner_info
 from pyker.constants import HAND_SIZE
-from pyker.rating import HandType, rate_hand
+from pyker.rating import HandRating, rate_hand
 
 
 __all__ = ['Game', 'Player', 'get_winners']
@@ -115,10 +115,11 @@ class Game(object):
             self._award_winnings(winner, self.current_hand.pot)
         else:
             print('\n======== Showdown ========')
-            top_rating, winners = get_winners(self.players, self.current_hand.board)
-            print_winner_info(top_rating, winners)
+            winners = get_winners(self.players, self.current_hand.board)
+            print_winner_info(winners)
             if len(winners) == 1:
-                self._award_winnings(winners.pop(), self.current_hand.pot)
+                winner, _ = winners.pop()
+                self._award_winnings(winner, self.current_hand.pot)
             else:
                 pass  # TODO - split pot
 
@@ -276,16 +277,6 @@ class Game(object):
             elif action == 'check' and pre_flop and player is self.big_blind_player:
                 break
 
-    def _get_winners(self) -> Tuple[HandType, List[Player]]:
-        ratings = defaultdict(list)
-        for player in self.players:
-            if player.hand is not None:
-                hand_type = rate_hand(player.hand + self.current_hand.board)
-                ratings[hand_type].append(player)
-        top_rating = sorted(ratings.keys())[-1]
-        winners = ratings[top_rating]
-        return top_rating, winners
-
     @staticmethod
     def _award_winnings(player: Player, amount: int) -> None:
         player.chips += amount
@@ -295,12 +286,16 @@ class Game(object):
         print(f'{self.current_hand.board}\tPot: {self.current_hand.pot}')
 
 
-def get_winners(players, board):
-    ratings = defaultdict(list)
+def get_winners(players: Collection[Player], board: Collection[Card]) -> List[Tuple[Player, HandRating]]:
+    top_rating = None
+    winners = []
     for player in players:
         if player.hand is not None:
-            hand_type = rate_hand(player.hand + board)
-            ratings[hand_type].append(player)
-    top_rating = sorted(ratings.keys())[-1]
-    winners = ratings[top_rating]
-    return top_rating, winners
+            hand_rating = rate_hand(player.hand + board)
+            player_and_rating = (player, hand_rating)
+            if top_rating is None or hand_rating > top_rating:
+                top_rating = hand_rating
+                winners = [player_and_rating]
+            elif hand_rating == top_rating:
+                winners.append(player_and_rating)
+    return winners

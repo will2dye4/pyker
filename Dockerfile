@@ -1,8 +1,11 @@
 FROM python:3.7-alpine
 
+# Copy package into container
 COPY . /pyker
-
 WORKDIR /pyker
-RUN python setup.py install
-CMD python
 
+# Install package
+RUN python setup.py install
+
+# Run Python interpreter
+CMD python

@@ -53,8 +53,8 @@ def run_hand(players=None, deck=None):
 
     # print results
     print('\nResults')
-    top_rating, winners = get_winners(players, flop + (turn, river))
-    print_winner_info(top_rating, winners)
+    winners = get_winners(players, flop + (turn, river))
+    print_winner_info(winners)
     print()
 
     # return cards to deck and reshuffle
