@@ -75,7 +75,7 @@ def run_hands(n=1000, num_players=4):
         for player in players:
             player.hand = tuple(deck.draw_many(count=2))
         board = tuple(deck.draw_many(count=5))
-        winners = get_winners(players, tuple(board))
+        winners = get_winners(players, board)
         for _, hand_rating in winners:
             outcomes[hand_rating.hand_type].append(hand_rating)
 
