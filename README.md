@@ -100,7 +100,7 @@ Player 1     (K♦︎, 9♥︎)     8000     Full house
 [0] Player 1 (D) may fold, check, bet: check
 
 ======== Showdown ========
-Player 1 wins with a full house
+Player 1 wins with a full house (nines full of kings)
 --> Player 1 folds
 --> Player 2 folds
 
