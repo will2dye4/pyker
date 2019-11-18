@@ -81,6 +81,13 @@ def run_hands(n=1000, num_players=4):
         print('-' * 40)
         print(f'Total            {occurrence_total:8,}     ({frequency_total:0.2f}%)')
 
+    if n < 1:
+        raise ValueError('n must be > 0')
+    if num_players < 2:
+        raise ValueError('num_players must be > 1')
+    if num_players > 23:
+        raise ValueError('num_players must be < 24')
+
     players = [Player() for _ in range(num_players)]
     deck = Deck()
     all_outcomes = defaultdict(list)
