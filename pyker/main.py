@@ -4,6 +4,7 @@ from typing import Collection, Tuple
 from pyker.cards import Card, Deck
 from pyker.cli import print_player_info, print_winner_info
 from pyker.game import Game, Player, get_winners
+from pyker.rating import HandType, rate_hand
 
 
 __all__ = ['play_game', 'run_hand', 'run_hands']
@@ -67,23 +68,41 @@ def run_hand(players=None, deck=None):
 
 
 def run_hands(n=1000, num_players=4):
+    def show_outcomes(outcomes, all_hands):
+        total = n * num_players if all_hands else n
+        occurrence_total = 0
+        frequency_total = 0
+        for hand_type in sorted(HandType):
+            occurrences = len(outcomes[hand_type])
+            occurrence_total += occurrences
+            frequency = (occurrences / total) * 100
+            frequency_total += frequency
+            print(f'{hand_type.name:16} {occurrences:8,}      ({frequency:0.2f}%)')
+        print('-' * 40)
+        print(f'Total            {occurrence_total:8,}     ({frequency_total:0.2f}%)')
+
     players = [Player() for _ in range(num_players)]
     deck = Deck()
-    outcomes = defaultdict(list)
+    all_outcomes = defaultdict(list)
+    winning_outcomes = defaultdict(list)
 
     for _ in range(n):
         for player in players:
             player.hand = tuple(deck.draw_many(count=2))
         board = tuple(deck.draw_many(count=5))
+        for player in players:
+            hand_rating = rate_hand(player.hand + board)
+            all_outcomes[hand_rating.hand_type].append(hand_rating)
         winners = get_winners(players, board)
         for _, hand_rating in winners:
-            outcomes[hand_rating.hand_type].append(hand_rating)
+            winning_outcomes[hand_rating.hand_type].append(hand_rating)
 
         deck.add(board)
         deck.add([card for hand in map(lambda p: p.hand, players) for card in hand])
         deck.shuffle()
 
-    for hand_type in sorted(outcomes.keys()):
-        occurrences = len(outcomes[hand_type])
-        frequency = (occurrences / n) * 100
-        print(f'{hand_type.name:16} {occurrences:8,}     ({frequency:0.2f}%)')
+    print('============= All Outcomes =============')
+    show_outcomes(all_outcomes, all_hands=True)
+
+    print('\n\n=========== Winning Outcomes ===========')
+    show_outcomes(winning_outcomes, all_hands=False)
