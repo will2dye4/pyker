@@ -10,10 +10,10 @@ __all__ = ['Card', 'Deck', 'Rank', 'Suit']
 
 
 class Suit(OrderedEnum):
-    spades = (4, '♠️')
-    hearts = (3, '♥️')
-    diamonds = (2, '♦️')
-    clubs = (1, '♣️')
+    spades = (4, '♠︎')
+    hearts = (3, '♥︎')
+    diamonds = (2, '♦︎')
+    clubs = (1, '♣')
 
     @classmethod
     def for_letter(cls, letter: str) -> Optional['Suit']:
