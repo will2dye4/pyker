@@ -106,3 +106,11 @@ def run_hands(n=1000, num_players=4):
 
     print('\n\n=========== Winning Outcomes ===========')
     show_outcomes(winning_outcomes, all_hands=False)
+
+    print('\n\n============== Hand Strength ==============')
+    for hand_type in sorted(HandType):
+        all_occurrences = len(all_outcomes[hand_type])
+        winning_occurrences = len(winning_outcomes[hand_type])
+        win_frequency = (winning_occurrences / all_occurrences) * 100 if all_occurrences > 0 else 0
+        ratio = f'{winning_occurrences:,} / {all_occurrences:,}'
+        print(f'{hand_type.name:16} {ratio:12}      ({win_frequency:0.2f}%)')
