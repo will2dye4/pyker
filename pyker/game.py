@@ -1,41 +1,27 @@
-import re
 import weakref
 
 from collections import defaultdict, deque
 from itertools import cycle
-from typing import Collection, Dict, List, Tuple
+from typing import Collection, List, Optional, Tuple, Type
 
 from pyker.cards import Card, Deck
 from pyker.cli import print_player_info, print_winner_info
 from pyker.constants import HAND_SIZE
+from pyker.player import Action, Player, Position
 from pyker.rating import HandRating, rate_hand
 
 
-__all__ = ['Game', 'Player', 'get_winners']
-
-
-class Player(object):
-
-    player_id = 1   # don't create players in different threads simultaneously or multiple players may get the same ID
-
-    def __init__(self, name: str = None, chips: int = 0):
-        self.hand = None
-        self.hands_played = 0
-        self.wins = 0
-        self.chips = chips
-        self.player_id = Player.player_id
-        self.name = name or f'Player {self.player_id}'
-        Player.player_id += 1
-
-    def __str__(self):
-        return f'Player(name={self.name!r}, chips={self.chips})'
+__all__ = ['Game', 'get_winners']
 
 
 class Game(object):
 
     class Hand(object):
-        def __init__(self, game):
-            self.game = weakref.ref(game)
+        def __init__(self, game: Optional['Game']) -> None:
+            if game is None:
+                self.game = None
+            else:
+                self.game = weakref.ref(game)
             self.pot = 0
             self.flop = None
             self.turn = None
@@ -43,7 +29,7 @@ class Game(object):
             self.muck = ()
 
         @property
-        def board(self):
+        def board(self) -> Tuple[Card]:
             board = self.flop or ()
             if self.turn:
                 board += (self.turn,)
@@ -52,18 +38,21 @@ class Game(object):
             return board
 
         @staticmethod
-        def sorted_cards(cards: Collection[Card]) -> Tuple[Card]:
+        def sorted_cards(cards: Collection[Card]) -> Collection[Card]:
             return tuple(sorted(cards, key=lambda c: (c.rank, c.suit), reverse=True))
 
-    def __init__(self, ante: int = 0, blinds: Tuple[int] = (100, 200), players: List[Player] = None):
+    def __init__(self, ante: int = 0, blinds: Tuple[int, int] = (100, 200), players: Optional[List[Player]] = None,
+                 player_type: Type[Player] = Player, num_players: int = 4):
         if not isinstance(ante, int):
-            raise Exception('ante must be an integer')
-        if not blinds or len(list(blinds)) != 2:
-            raise Exception('blinds must be a 2-item tuple')
+            raise ValueError('Ante must be an integer')
+        if not blinds or len(blinds) != 2:
+            raise ValueError('Blinds must be a 2-item tuple')
         if not players:
-            players = [Player(chips=10000) for _ in range(4)]
+            if num_players < 2:
+                raise ValueError('Must have at least two players')
+            players = [player_type(chips=10_000) for _ in range(num_players)]
         elif len(players) < 2:
-            raise Exception('must have at least two players')
+            raise ValueError('Must have at least two players')
         self.ante = ante
         self.small_blind = blinds[0]
         self.big_blind = blinds[1]
@@ -135,7 +124,7 @@ class Game(object):
     def bet_or_fold(self, player: Player, amount: int) -> None:
         if amount == 0:
             return
-        if Game.check_bet(player=player, amount=amount):
+        if player.check_bet(amount):
             self.bet(player=player, amount=amount)
         else:
             self.all_in_or_fold(player=player)
@@ -169,9 +158,14 @@ class Game(object):
     def big_blind_player(self) -> Player:
         return self._player_at_index_relative_to_dealer(relative_index=2)
 
-    @staticmethod
-    def check_bet(player: Player, amount: int) -> bool:
-        return player.chips >= amount
+    def _player_position(self, player: Player) -> Optional[Position]:
+        if player is self.dealer:
+            return Position.dealer
+        if player is self.small_blind_player:
+            return Position.small_blind
+        if player is self.big_blind_player:
+            return Position.big_blind
+        return None
 
     def _player_at_index_relative_to_dealer(self, relative_index: int) -> Player:
         # use len(self.hands) as a counter that increments after each hand
@@ -181,59 +175,21 @@ class Game(object):
         # use len(self.hands) as a counter that increments after each hand
         return (len(self.hands) + relative_index) % len(self.players)
 
-    def _dealer_index(self):
+    def _dealer_index(self) -> int:
         return self._index_relative_to_dealer(relative_index=0)
 
-    def _get_available_actions(self, player: Player, current_bet: int, pre_flop: bool = False) -> List[str]:
-        actions = ['fold']
+    def _get_available_actions(self, player: Player, current_bet: int, pre_flop: bool = False) -> List[Action]:
+        actions = [Action.fold]
         if not current_bet or (pre_flop and player is self.big_blind_player and current_bet == self.big_blind):
-            actions += ['check', 'bet']
+            actions += [Action.check, Action.bet]
         else:
             if player.chips >= current_bet:
-                actions.append('call')
+                actions.append(Action.call)
             if player.chips > current_bet:
-                actions.append('raise')
+                actions.append(Action.raise_)
         return actions
 
-    def _get_action_from_user(self, player: Player, player_bets: Dict[Player, int],
-                              current_bet: int, pre_flop: bool = False) -> Tuple[str, int]:
-        actions = self._get_available_actions(player=player, current_bet=current_bet, pre_flop=pre_flop)
-        action = None
-        bet = None
-        while action is None:
-            player_annotation = ' (D)' if player is self.dealer else \
-                ' (SB)' if player is self.small_blind_player else \
-                ' (BB)' if player is self.big_blind_player else ''
-            user_action = input(f'[{current_bet}] {player.name}{player_annotation} may {", ".join(actions)}: ')
-            args = re.split(r'\s+', user_action)
-            if args[0] not in actions:
-                print('Invalid action!')
-                continue
-            elif args[0] == 'bet' or args[0] == 'raise':
-                if len(args) < 2:
-                    print('You must specify an amount!')
-                else:
-                    raise_to = args[:2] == ['raise', 'to']
-                    try:
-                        amount_arg = args[2 if raise_to else 1].replace(',', '')
-                        amount = int(amount_arg) + (0 if raise_to or not current_bet else current_bet)
-                    except ValueError:
-                        print('Invalid amount - must be an integer')
-                    else:
-                        if amount <= 0:
-                            print('Invalid amount - must be positive')
-                        elif raise_to and amount <= current_bet:
-                            print(f'Invalid amount - must be higher than the current bet ({current_bet})')
-                        elif not Game.check_bet(player=player, amount=amount - player_bets[player]):
-                            print(f'Invalid amount - {player.name} only has {player.chips} chips')
-                        else:
-                            action = args[0]
-                            bet = amount
-            else:
-                action = args[0]
-        return action, bet
-
-    def _round_of_betting(self, pre_flop: bool = False):
+    def _round_of_betting(self, pre_flop: bool = False) -> None:
         # put player to act first at the front of the list
         relative_index = 3 if pre_flop else 1
         players = deque(player for player in self.players if player.hand is not None)
@@ -255,26 +211,32 @@ class Game(object):
             if player.hand is None:
                 continue
             if pre_flop and (player is last_raiser and current_bet > self.big_blind):
-                #    or (i > 0 and current_bet == self.big_blind and player is last_caller)):
                 break
             if not pre_flop and (player is last_raiser or (i > 0 and current_bet == 0 and player is last_caller)):
                 break
+
             check_for_draw = not pre_flop and len(self.current_hand.board) < HAND_SIZE
             print_player_info(player, extra_cards=self.current_hand.board, check_for_draws=check_for_draw)
-            action, bet = self._get_action_from_user(player=player, player_bets=player_bets,
-                                                     current_bet=current_bet, pre_flop=pre_flop)
-            if action == 'fold':
+
+            allowed_actions = self._get_available_actions(player=player, current_bet=current_bet, pre_flop=pre_flop)
+            position = self._player_position(player)
+            player_bet = player_bets[player]
+            player_action = player.get_action(allowed_actions=allowed_actions, position=position,
+                                              current_bet=current_bet, player_bet=player_bet)
+
+            if player_action.action == Action.fold:
                 self.fold(player)
-            elif action in ['bet', 'raise']:
-                self.bet(player=player, amount=bet - player_bets[player])
+            elif player_action.action in [Action.bet, Action.raise_]:
+                bet = player_action.bet
+                self.bet(player=player, amount=bet - player_bet)
                 current_bet = bet
                 player_bets[player] = current_bet
                 last_raiser = player
-            elif action == 'call':
-                self.bet(player=player, amount=current_bet - player_bets[player])
+            elif player_action.action == Action.call:
+                self.bet(player=player, amount=current_bet - player_bet)
                 player_bets[player] = current_bet
                 last_caller = player
-            elif action == 'check' and pre_flop and player is self.big_blind_player:
+            elif player_action.action == Action.check and pre_flop and player is self.big_blind_player:
                 break
 
     @staticmethod
@@ -282,7 +244,7 @@ class Game(object):
         player.chips += amount
         player.wins += 1
 
-    def _print_current_state(self):
+    def _print_current_state(self) -> None:
         print(f'{self.current_hand.board}\tPot: {self.current_hand.pot}')
 
 

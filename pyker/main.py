@@ -1,18 +1,19 @@
 from collections import defaultdict
-from typing import Collection, Tuple
+from typing import Collection, Dict, List, Optional
 
 from pyker.cards import Card, Deck
-from pyker.cli import print_player_info, print_winner_info
-from pyker.game import Game, Player, get_winners
-from pyker.rating import HandType, rate_hand
+from pyker.cli import CLIPlayer, print_player_info, print_winner_info
+from pyker.game import Game, get_winners
+from pyker.player import Player
+from pyker.rating import HandRating, HandType, rate_hand
 
 
 __all__ = ['play_game', 'run_hand', 'run_hands']
 
 
-def play_game():
+def play_game() -> None:
     print('Welcome! A new game is starting.\n')
-    game = Game()
+    game = Game(player_type=CLIPlayer)
     response = ''
     while response not in ('n', 'no'):
         game.play_hand()
@@ -20,11 +21,8 @@ def play_game():
     print('Goodbye!')
 
 
-def run_hand(players=None, deck=None):
-    def sorted_cards(cards: Collection[Card]) -> Tuple[Card]:
-        return tuple(sorted(cards, key=lambda c: (c.rank, c.suit), reverse=True))
-
-    def print_all_player_info(extra_cards=None, check_for_draws=True):
+def run_hand(players: Optional[List[Player]] = None, deck: Optional[Deck] = None) -> None:
+    def print_all_player_info(extra_cards: Optional[Collection[Card]] = None, check_for_draws: bool = True) -> None:
         for player in players:
             print_player_info(player, extra_cards, check_for_draws)
 
@@ -33,42 +31,44 @@ def run_hand(players=None, deck=None):
     if deck is None:
         deck = Deck()
 
+    hand = Game.Hand(game=None)
+
     # deal hand to each player, print hands
     for player in players:
-        player.hand = sorted_cards(deck.draw_many(count=2))
+        player.hand = Game.Hand.sorted_cards(deck.draw_many(count=2))
         print_player_info(player)
 
     # deal the flop, re-evaluate hands
-    flop = sorted_cards(deck.draw_many(count=3))
-    print('\nFlop\n', flop, '\n', sep='')
-    print_all_player_info(extra_cards=flop)
+    hand.flop = Game.Hand.sorted_cards(deck.draw_many(count=3))
+    print('\nFlop\n', hand.flop, '\n', sep='')
+    print_all_player_info(extra_cards=hand.board)
 
     # deal the turn, re-evaluate hands
-    turn = deck.draw()
-    print('\nTurn\n', flop + (turn,), '\n', sep='')
-    print_all_player_info(extra_cards=flop + (turn,))
+    hand.turn = deck.draw()
+    print('\nTurn\n', hand.board, '\n', sep='')
+    print_all_player_info(extra_cards=hand.board)
 
     # deal the river, re-evaluate hands
-    river = deck.draw()
-    print('\nRiver\n', flop + (turn, river), '\n', sep='')
-    print_all_player_info(extra_cards=flop + (turn, river), check_for_draws=False)
+    hand.river = deck.draw()
+    print('\nRiver\n', hand.board, '\n', sep='')
+    print_all_player_info(extra_cards=hand.board, check_for_draws=False)
 
     # print results
     print('\nResults')
-    winners = get_winners(players, flop + (turn, river))
+    winners = get_winners(players, hand.board)
     print_winner_info(winners)
     print()
 
     # return cards to deck and reshuffle
-    deck.add(flop + (turn, river))
+    deck.add(hand.board)
     deck.add([card for hand in map(lambda p: p.hand, players) for card in hand])
     deck.shuffle()
     for player in players:
         player.hand = None
 
 
-def run_hands(n=1000, num_players=4):
-    def show_outcomes(outcomes, all_hands):
+def run_hands(n: int = 1000, num_players: int = 4) -> None:
+    def show_outcomes(outcomes: Dict[HandType, List[HandRating]], all_hands: bool) -> None:
         total = n * num_players if all_hands else n
         occurrence_total = 0
         frequency_total = 0
